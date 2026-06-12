@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+.next/
+out/
+
+# Environment
+.env
+.env.local
+
+# ML model cache (large files — friend downloads on their machine)
+__pycache__/
+*.pyc
+ml-service/__pycache__/
+
+# Generated data
+data/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

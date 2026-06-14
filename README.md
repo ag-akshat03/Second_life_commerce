@@ -205,7 +205,7 @@ Open **http://localhost:3000**
 
 ## Team
 
-Built for Amazon Smbhav Hackathon 2025
+Built for Amazon Hackon 6.0 by team Trump_card.
 
 ---
 

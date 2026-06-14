@@ -184,7 +184,7 @@ export default function RefurbishedPage() {
       {filteredItems.length === 0 && !loading && (
         <div className="mt-12 text-center">
           <p className="text-slate-500">No items match this filter.</p>
-          <Link href="/resell" className="mt-2 inline-block text-sm font-bold text-amazon-teal hover:underline">
+          <Link href="/sell-device" className="mt-2 inline-block text-sm font-bold text-amazon-teal hover:underline">
             Sell your items on Amazon Resale →
           </Link>
         </div>

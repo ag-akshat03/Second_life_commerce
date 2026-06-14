@@ -196,9 +196,7 @@ export function Navbar() {
           <Link href="/prime" className="shrink-0 rounded-sm border border-transparent px-2 py-1.5 hover:border-white">
             Prime
           </Link>
-          <Link href="/resell" className="shrink-0 rounded-sm border border-transparent px-2 py-1.5 text-emerald-300 hover:border-white">
-            Resell
-          </Link>
+          
           <Link href="/sell-device" className="shrink-0 rounded-sm border border-transparent px-2 py-1.5 text-amazon-gold hover:border-white">
             Sell Device
           </Link>

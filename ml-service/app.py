@@ -179,6 +179,43 @@ def invoice_verify(request: InvoiceVerifyRequest):
 
 
 # ============================================================
+# DECISION ENGINE (5-Stage Pipeline)
+# ============================================================
+class ReturnDecisionRequest(BaseModel):
+    images: list[str] = []
+    category: str = "electronics"
+    product_value: float = 1000
+    return_reason: str = ""
+    complaint_text: str = ""
+    customer_answers: Optional[dict] = None
+    user_id: str = "unknown"
+    weight_kg: float = 1.0
+    return_history: Optional[dict] = None
+    product_age_months: int = 6
+    warranty_status: str = "expired"
+
+
+@app.post("/returns/decide")
+def returns_decide(request: ReturnDecisionRequest):
+    """5-stage AI decision engine with customer protection."""
+    from decision_engine.orchestrator import process_return_request
+    result = process_return_request(
+        images_b64=request.images,
+        category=request.category,
+        product_value=request.product_value,
+        return_reason=request.return_reason,
+        complaint_text=request.complaint_text,
+        customer_answers=request.customer_answers,
+        user_id=request.user_id,
+        weight_kg=request.weight_kg,
+        return_history=request.return_history,
+        product_age_months=request.product_age_months,
+        warranty_status=request.warranty_status,
+    )
+    return result
+
+
+# ============================================================
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

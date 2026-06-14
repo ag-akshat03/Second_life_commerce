@@ -182,6 +182,7 @@ export default async function OrdersPage() {
                         productId={item.id}
                         productTitle={item.title}
                         productImage={item.image}
+                        productPrice={item.price}
                       />
                     )}
                   </div>

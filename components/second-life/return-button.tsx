@@ -10,6 +10,7 @@ interface ReturnButtonProps {
   productId: string;
   productTitle: string;
   productImage: string;
+  productPrice?: number;
 }
 
 type Step = "reason" | "upload" | "analyzing" | "approved" | "not_returnable";
@@ -23,7 +24,7 @@ const RETURN_REASONS = [
   { id: "wrong_item", label: "Wrong item delivered" },
 ];
 
-export function ReturnButton({ orderId, productId, productTitle, productImage }: ReturnButtonProps) {
+export function ReturnButton({ orderId, productId, productTitle, productImage, productPrice = 24999 }: ReturnButtonProps) {
   const [showModal, setShowModal] = useState(false);
   const [step, setStep] = useState<Step>("reason");
   const [reason, setReason] = useState("");
@@ -65,7 +66,7 @@ export function ReturnButton({ orderId, productId, productTitle, productImage }:
     setLoading(true);
 
     try {
-      const res = await fetch("/api/returns/decision", {
+      const res = await fetch("/api/returns", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -77,13 +78,17 @@ export function ReturnButton({ orderId, productId, productTitle, productImage }:
           variant,
           skuDescription: productTitle,
           returnReason: reason,
+          complaintText: reason,
+          productValue: productPrice,
+          category: "electronics",
+          productAgeMonths: 6,
         }),
       });
       const data = await res.json();
       setResult(data);
 
-      // Route based on condition
-      if (data.cosmeticScore >= 75 || data.decision === "digital_inventory") {
+      // Route to appropriate step based on recommendation
+      if (data.recommendation === "full_refund" || data.recommendation === "full_refund_with_return" || data.recommendation === "approve_return") {
         setStep("approved");
       } else {
         setStep("not_returnable");
@@ -238,12 +243,12 @@ export function ReturnButton({ orderId, productId, productTitle, productImage }:
             AI Inspection in Progress...
           </p>
           <p className="mt-1 text-xs text-slate-500">
-            Our DINOv2 + CLIP models are analyzing your product&apos;s condition
+            Our advanced AI is analyzing your product&apos;s condition
           </p>
         </div>
       )}
 
-      {/* STEP 4: Approved — product is in good condition */}
+      {/* STEP 4: Approved — full refund path */}
       {step === "approved" && result && (
         <div className="mt-4">
           <div className="rounded-lg bg-green-50 p-4 dark:bg-green-950/20">
@@ -252,147 +257,94 @@ export function ReturnButton({ orderId, productId, productTitle, productImage }:
               <h5 className="text-base font-bold text-green-800 dark:text-green-200">Return Approved!</h5>
             </div>
             <p className="mt-2 text-sm text-green-700 dark:text-green-300">
-              Your product has been inspected and found to be in <strong>{result.conditionLabel || "good"}</strong> condition.
+              {result.customerExplanation || "Your return has been approved. Refund will be processed after pickup."}
             </p>
 
-            {/* AI Inspection Results */}
+            {/* Refund amount */}
             <div className="mt-3 rounded-md bg-white/80 p-3 dark:bg-slate-800/50">
-              <p className="text-xs font-bold text-slate-600">AI Inspection Report</p>
-              <div className="mt-1 flex items-center gap-3">
-                <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${
-                  (result.cosmeticScore || 80) >= 90 ? "bg-green-100 text-green-800" :
-                  (result.cosmeticScore || 80) >= 75 ? "bg-blue-100 text-blue-800" :
-                  "bg-amber-100 text-amber-800"
-                }`}>
-                  Condition Score: {result.cosmeticScore || 80}/100
-                </span>
-                <span className="text-xs text-slate-500">{result.conditionLabel || "Good"}</span>
+              <p className="text-lg font-bold text-green-800">Refund: ₹{(result.refundAmount || 2299).toLocaleString()}</p>
+              <p className="text-xs text-slate-500">Confidence: {Math.round((result.confidence || 0.7) * 100)}%</p>
+              {result.conditionSeverity !== undefined && (
+                <p className="text-xs text-slate-500">Condition severity: {result.conditionSeverity}/100</p>
+              )}
+            </div>
+
+            {/* Options if available */}
+            {result.options && result.options.length > 0 && (
+              <div className="mt-3 space-y-2">
+                <p className="text-xs font-bold text-slate-600">Choose your preferred option:</p>
+                {result.options.map((opt: any, i: number) => (
+                  <button key={i} className="flex w-full items-center justify-between rounded-lg border border-green-200 bg-white p-2.5 text-left text-sm hover:border-green-400 dark:bg-slate-800">
+                    <span>{opt.label}</span>
+                    {opt.amount > 0 && <span className="font-bold text-green-700">₹{opt.amount.toLocaleString()}</span>}
+                  </button>
+                ))}
               </div>
-            </div>
-
-            <div className="mt-4 rounded-md border border-green-200 bg-green-100/50 p-3 dark:border-green-800 dark:bg-green-900/20">
-              <p className="text-sm font-bold text-green-800 dark:text-green-200">
-                💰 Your refund will be initiated after pickup
-              </p>
-              <p className="mt-1 text-xs text-green-700 dark:text-green-300">
-                A delivery agent will pick up the item within 2-3 business days. Refund will be processed to your original payment method within 5-7 days of pickup.
-              </p>
-            </div>
-
-            {result.decision === "digital_inventory" && (
-              <p className="mt-3 text-xs text-blue-600">
-                🔄 This item will be directly matched to a new buyer — saving reverse logistics costs and carbon emissions!
-              </p>
             )}
+
+            <p className="mt-3 text-xs text-green-600">
+              ✅ Pickup scheduled within 2-3 business days. Refund within 5-7 days of pickup.
+            </p>
           </div>
         </div>
       )}
 
-      {/* STEP 5: Not returnable — offer alternatives */}
+      {/* STEP 5: Options screen (powered by 5-stage engine) */}
       {step === "not_returnable" && result && !result.compensationAccepted && (
         <div className="mt-4">
           <TrustBar />
           <div className="mt-3 rounded-xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
-            {/* Score Result Card */}
-            <div className="flex items-center gap-4">
-              <ScoreRing score={result.cosmeticScore || 45} size={64} />
-              <div>
-                <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-[11px] font-medium text-red-800">
-                  {result.conditionLabel || "For Parts/Refurb Only"}
-                </span>
-                <p className="mt-1 text-[13px] text-slate-500">
-                  Product shows significant wear/damage. Standard return not available due to logistics costs exceeding item residual value.
-                </p>
-              </div>
-            </div>
+            <p className="text-[13px] text-slate-600 dark:text-slate-300">
+              {result.customerExplanation || "Based on our AI assessment, here are your options:"}
+            </p>
 
-            {/* Options — clear hierarchy */}
-            <div className="mt-5 space-y-3">
-              {/* PRIMARY: Partial Refund / Compensation — keep the product */}
-              <div className="rounded-xl border-2 border-amazon-gold bg-amber-50/50 p-4 dark:border-amber-700 dark:bg-amber-950/10">
-                <div className="flex items-center gap-2">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-100 text-lg">💰</span>
-                  <div>
-                    <p className="text-[15px] font-medium text-slate-900 dark:text-white">Keep the product + Get partial refund</p>
-                    <p className="text-[13px] text-slate-500">No need to return — receive compensation directly to your account</p>
-                  </div>
-                </div>
-                <div className="mt-3 rounded-lg bg-white px-4 py-3 dark:bg-slate-800">
-                  <p className="text-[13px] text-slate-600">Compensation amount:</p>
-                  <p className="text-2xl font-medium text-amazon-gold">₹{Math.round((result.cosmeticScore || 45) * 0.35 * 50).toLocaleString()}</p>
-                  <p className="text-[11px] text-slate-400">({Math.round((result.cosmeticScore || 45) * 0.35)}% of product value • Credited within 24 hours)</p>
-                </div>
+            {result.conditionSeverity !== undefined && (
+              <div className="mt-3 flex items-center gap-3">
+                <ScoreRing score={Math.max(10, 100 - (result.conditionSeverity || 30))} size={48} />
+                <p className="text-[13px] text-slate-600">Severity: {result.conditionSeverity}/100 • Confidence: {Math.round((result.conditionConfidence || 0.6) * 100)}%</p>
+              </div>
+            )}
+
+            <div className="mt-4 space-y-2.5">
+              {(result.options && result.options.length > 0 ? result.options : [
+                { id: "full_return", label: `Full return & refund ₹${result.refundAmount || 2299}`, amount: result.refundAmount || 2299 },
+                { id: "accept_compensation", label: `Keep product + ₹${result.compensationAmount || 350} partial refund`, amount: result.compensationAmount || 350 },
+                { id: "resell", label: "Resell on Amazon Marketplace", amount: 0 },
+                { id: "donate", label: "Donate & earn Green Credits", amount: 0 },
+              ]).map((opt: any, i: number) => (
                 <button
-                  onClick={() => setResult({ ...result, compensationAccepted: true, compensationAmount: Math.round((result.cosmeticScore || 45) * 0.35 * 50) })}
-                  className="mt-3 w-full rounded-lg bg-amazon-gold py-2.5 text-[13px] font-medium text-slate-950">
-                  ✓ Accept Compensation — Keep Product
+                  key={i}
+                  onClick={() => {
+                    if (opt.id === "resell") window.location.href = "/sell-device";
+                    else if (opt.id === "donate") handleDonate();
+                    else setResult({ ...result, compensationAccepted: true, compensationAmount: opt.amount });
+                  }}
+                  className={`flex w-full items-center justify-between rounded-xl border p-3.5 text-left transition ${
+                    i === 0 ? "border-2 border-amazon-gold bg-amber-50/50" : "border-slate-200 hover:border-slate-300 dark:border-white/10"
+                  }`}
+                >
+                  <span className="text-[13px] text-slate-800 dark:text-slate-200">{opt.label}</span>
+                  {opt.amount > 0 && <span className="text-[13px] font-medium text-emerald-700">₹{opt.amount.toLocaleString()}</span>}
                 </button>
-              </div>
-
-              
-
-              {/* TERTIARY: Donate */}
-              <button
-                onClick={handleDonate}
-                disabled={loading}
-                className="flex w-full items-center gap-3 rounded-xl border border-slate-200 p-4 text-left transition hover:border-emerald-300 hover:bg-emerald-50/50 dark:border-white/10"
-              >
-                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-lg dark:bg-slate-800">🌱</span>
-                <div className="flex-1">
-                  <p className="text-[15px] font-medium text-slate-900 dark:text-white">Donate & Earn Green Credits</p>
-                  <p className="text-[13px] text-slate-500">Help someone in need + earn credits for future purchases</p>
-                </div>
-                <span className="rounded-lg border border-slate-300 px-3 py-1.5 text-[13px] font-medium text-slate-700 dark:border-white/20 dark:text-slate-200">Donate</span>
-              </button>
+              ))}
             </div>
           </div>
         </div>
       )}
 
-      {/* Compensation accepted confirmation */}
       {result?.compensationAccepted && (
         <div className="mt-4 rounded-xl border-2 border-green-200 bg-green-50 p-5 text-center dark:border-green-800 dark:bg-green-950/20">
           <span className="text-3xl">✅</span>
-          <h5 className="mt-2 text-[15px] font-medium text-green-800 dark:text-green-200">Compensation Accepted!</h5>
-          <p className="mt-1 text-2xl font-medium text-green-800">₹{result.compensationAmount?.toLocaleString()}</p>
-          <p className="mt-1 text-[13px] text-green-600">
-            Partial refund of ₹{result.compensationAmount?.toLocaleString()} will be credited to your account within 24 hours.
-          </p>
-          <p className="mt-2 text-[13px] text-slate-500">You can keep the product — no return needed.</p>
+          <h5 className="mt-2 text-[15px] font-medium text-green-800">Confirmed!</h5>
+          <p className="mt-1 text-xl font-medium text-green-800">₹{result.compensationAmount?.toLocaleString()}</p>
+          <p className="mt-1 text-[13px] text-green-600">Will be credited within 24 hours.</p>
         </div>
       )}
 
-      {/* Green Credits celebration */}
       {result?.greenCredits && (
-        <div className="mt-4">
-          <div className="rounded-lg bg-green-50 p-5 text-center dark:bg-green-950/20">
-            <p className="text-3xl">🌱🎉</p>
-            <h5 className="mt-2 text-lg font-bold text-green-800 dark:text-green-200">
-              Thank you for your donation!
-            </h5>
-            <p className="mt-2 text-sm text-green-700 dark:text-green-300">
-              {result.greenCredits.message}
-            </p>
-            <div className="mt-4 inline-flex items-center gap-4 rounded-full bg-green-100 px-4 py-2 dark:bg-green-900/30">
-              <div className="text-center">
-                <p className="text-lg font-bold text-green-800">{result.greenCredits.creditsAwarded}</p>
-                <p className="text-[10px] text-green-600">Credits Earned</p>
-              </div>
-              <div className="h-6 w-px bg-green-300"></div>
-              <div className="text-center">
-                <p className="text-lg font-bold text-green-800">{result.greenCredits.deltaCo2eKg} kg</p>
-                <p className="text-[10px] text-green-600">CO₂e Avoided</p>
-              </div>
-              <div className="h-6 w-px bg-green-300"></div>
-              <div className="text-center">
-                <p className="text-lg font-bold text-green-800">≈{result.greenCredits.treesEquivalent}</p>
-                <p className="text-[10px] text-green-600">Trees 🌳</p>
-              </div>
-            </div>
-            <p className="mt-3 text-xs text-green-600">
-              💡 Use your Green Credits on any purchase — get 30% bonus when buying refurbished items!
-            </p>
-          </div>
+        <div className="mt-4 rounded-lg bg-green-50 p-5 text-center dark:bg-green-950/20">
+          <p className="text-3xl">🌱🎉</p>
+          <h5 className="mt-2 text-lg font-bold text-green-800">{result.greenCredits.message}</h5>
         </div>
       )}
     </div>

@@ -1,6 +1,6 @@
 "use client";
 
-export function AILoadingSkeleton({ message = "AI inspecting your product using DINOv2 + CLIP analysis..." }: { message?: string }) {
+export function AILoadingSkeleton({ message = "Inspecting your product for quality verification..." }: { message?: string }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-white/10 dark:bg-slate-900">
       <div className="flex items-center gap-4">

@@ -97,7 +97,7 @@ export function ProductHealthCard({
             <div className="grid grid-cols-2 gap-2">
               <div><span className="text-slate-500">Device Age:</span> <strong>{ageMonths} months</strong></div>
               <div><span className="text-slate-500">Previous Owners:</span> <strong>{previousOwners}</strong></div>
-              <div><span className="text-slate-500">Inspection Method:</span> <strong>DINOv2 + CLIP AI</strong></div>
+              <div><span className="text-slate-500">Inspection Status:</span> <strong>Verified for Quality</strong></div>
               <div><span className="text-slate-500">Warranty:</span> <strong>{warranty}</strong></div>
             </div>
             {defectsFound.length > 0 ? (
@@ -111,7 +111,7 @@ export function ProductHealthCard({
               <p className="mt-2 font-bold text-green-600">✓ No defects detected during AI inspection</p>
             )}
             <p className="mt-2 text-slate-400">
-              This product was inspected using Amazon&apos;s AI grading system (DINOv2 structural analysis + CLIP semantic verification). 
+              This product was inspected using Amazon&apos;s advanced quality verification system. 
               Covered by Amazon A-to-Z Guarantee — full refund if item materially differs from this report.
             </p>
           </div>

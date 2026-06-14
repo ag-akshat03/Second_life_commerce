@@ -75,15 +75,41 @@ DEMO_USER_PROFILES = {
 
 # Product-level return data (simulates aggregate return stats per SKU)
 PRODUCT_RETURN_STATS = {
-    "Nike": {"runs_small": True, "size_offset": -0.5, "return_rate_size_issue": 0.32},
-    "Reebok": {"runs_small": True, "size_offset": -0.5, "return_rate_size_issue": 0.28},
-    "Adidas": {"runs_small": False, "size_offset": 0.0, "return_rate_size_issue": 0.12},
-    "Puma": {"runs_small": False, "size_offset": 0.0, "return_rate_size_issue": 0.10},
-    "Zara": {"runs_small": True, "size_offset": -0.3, "return_rate_size_issue": 0.35},
-    "H&M": {"runs_small": False, "size_offset": 0.3, "return_rate_size_issue": 0.18},
-    "Levi's": {"runs_small": True, "size_offset": -0.5, "return_rate_size_issue": 0.30},
-    "Yonex": {"runs_small": False, "size_offset": 0.0, "return_rate_size_issue": 0.08},
+    # Format: (brand, category) -> stats
+    # This ensures fit guidance is ALWAYS category-specific
+    ("Nike", "footwear"): {"runs_small": True, "size_offset": -0.5, "return_rate_size_issue": 0.32,
+        "fit_message": "Nike shoes tend to run small. 32% of size-related returns are due to tight fit."},
+    ("Reebok", "footwear"): {"runs_small": True, "size_offset": -0.5, "return_rate_size_issue": 0.28,
+        "fit_message": "Reebok shoes tend to run narrow. 28% of size-related returns are due to tight fit."},
+    ("Adidas", "footwear"): {"runs_small": False, "size_offset": 0.0, "return_rate_size_issue": 0.12,
+        "fit_message": "Adidas shoes are generally true to size."},
+    ("Puma", "footwear"): {"runs_small": False, "size_offset": 0.0, "return_rate_size_issue": 0.10,
+        "fit_message": "Puma shoes fit true to size for most customers."},
+    ("Levi's", "apparel"): {"runs_small": True, "size_offset": -0.5, "return_rate_size_issue": 0.30,
+        "fit_message": "Levi's jeans tend to have a slimmer fit around the waist and thighs. 30% of size-related returns are due to a tighter-than-expected fit."},
+    ("Zara", "apparel"): {"runs_small": True, "size_offset": -0.3, "return_rate_size_issue": 0.35,
+        "fit_message": "Zara clothing often runs smaller than standard sizing. 35% of returns cite tight fit."},
+    ("H&M", "apparel"): {"runs_small": False, "size_offset": 0.3, "return_rate_size_issue": 0.18,
+        "fit_message": "H&M clothing tends to run slightly larger than standard. Consider sizing down."},
+    ("Yonex", "sports"): {"runs_small": False, "size_offset": 0.0, "return_rate_size_issue": 0.08,
+        "fit_message": "Yonex sports equipment is standard sized."},
 }
+
+
+def _get_product_stats(brand: str, category: str) -> dict:
+    """Get category-specific brand stats. Never mix categories."""
+    # Try exact (brand, category) match first
+    key = (brand, category.lower())
+    if key in PRODUCT_RETURN_STATS:
+        return PRODUCT_RETURN_STATS[key]
+    
+    # Try partial brand match within same category
+    for (b, c), stats in PRODUCT_RETURN_STATS.items():
+        if b.lower() == brand.lower() and c == category.lower():
+            return stats
+    
+    # No match — return empty (no guidance rather than wrong guidance)
+    return {}
 
 # ============================================================
 # PREDICTION ENGINE
@@ -101,12 +127,15 @@ def _parse_size(size_str: str) -> float:
         return 8.0
 
 
-def _get_user_brand_history(user_id: str, brand: str) -> dict:
-    """Analyze user's history with a specific brand."""
+def _get_user_brand_history(user_id: str, brand: str, category: str = "") -> dict:
+    """Analyze user's history with a specific brand IN THE SAME CATEGORY."""
     profile = DEMO_USER_PROFILES.get(user_id, DEMO_USER_PROFILES["default"])
     orders = profile.get("orders", [])
     
-    brand_orders = [o for o in orders if o["brand"].lower() == brand.lower()]
+    # Filter by brand AND category — never mix categories
+    brand_orders = [o for o in orders 
+                    if o["brand"].lower() == brand.lower()
+                    and (not category or o["category"].lower() == category.lower())]
     if not brand_orders:
         return {"has_history": False}
     
@@ -177,16 +206,16 @@ def predict_fit(user_id: str, sku_id: str, selected_size: str,
     if uid not in DEMO_USER_PROFILES:
         uid = "rahul"  # Default demo user
     
-    # Gather intelligence
-    brand_history = _get_user_brand_history(uid, brand)
+    # Gather intelligence (CATEGORY-AWARE — never mix categories)
+    brand_history = _get_user_brand_history(uid, brand, category)
     category_history = _get_user_category_history(uid, category)
-    product_stats = PRODUCT_RETURN_STATS.get(brand, {})
+    product_stats = _get_product_stats(brand, category)
     
     # Compute return probability using Bayesian-style reasoning
     # P(return) = base_rate × brand_factor × personal_factor
     base_rate = 0.245 if category == "apparel" else 0.30 if category == "footwear" else 0.10
     
-    # Factor 1: Does this brand have sizing issues?
+    # Factor 1: Does this brand have sizing issues IN THIS CATEGORY?
     brand_return_rate = product_stats.get("return_rate_size_issue", 0.15)
     brand_factor = brand_return_rate / 0.15  # normalize against average
     
@@ -212,30 +241,43 @@ def predict_fit(user_id: str, sku_id: str, selected_size: str,
                 "message": f"Your preferred size in {brand} is {brand_history['preferred_size']} (kept {brand_history['kept_count']} times)"
             })
     
-    # Factor 3: Product-level alert
-    if product_stats.get("runs_small") and _parse_size(selected_size) <= 8.5:
+    # Factor 3: Product-level alert (CATEGORY-SPECIFIC, never cross-category)
+    if product_stats.get("runs_small") and product_stats.get("fit_message"):
+        # Only show if we have a category-specific message
         alerts.append({
             "type": "product_sizing",
             "severity": "medium", 
-            "message": f"{brand} shoes tend to run small. {int(brand_return_rate*100)}% of size-related returns are due to tight fit."
+            "message": product_stats["fit_message"],
         })
     
     # Final probability
     return_probability = min(0.95, base_rate * brand_factor * personal_factor)
     
-    # Generate recommendation
+    # Generate recommendation (PRIORITIZED hierarchy)
     recommended_size = selected_size
     nudge_message = None
     
     if return_probability > 0.40:
+        # Priority 1: Personal history with this brand+category
         if brand_history.get("preferred_size"):
             recommended_size = brand_history["preferred_size"]
-            nudge_message = f"Based on your history, we recommend {recommended_size} in {brand}. You kept this size {brand_history['kept_count']} time(s)."
+            nudge_message = (f"Based on your previous {brand} purchases, "
+                           f"you were more likely to keep size {recommended_size} than size {selected_size}.")
+        # Priority 2: Product-specific insight
         elif product_stats.get("runs_small"):
-            # Suggest one size up
             current = _parse_size(selected_size)
-            recommended_size = f"UK {current + 1:.0f}" if "UK" in selected_size.upper() else str(current + 1)
-            nudge_message = f"Customers with your foot profile prefer {recommended_size} in {brand}. Best return = no return."
+            if category == "apparel":
+                # For apparel: suggest next letter size
+                size_map = {"XS": "S", "S": "M", "M": "L", "L": "XL", "XL": "XXL"}
+                recommended_size = size_map.get(selected_size, str(current + 1))
+                nudge_message = f"Customers with a similar profile prefer {recommended_size} in {brand} {category}."
+            else:
+                recommended_size = f"UK {current + 1:.0f}" if "UK" in selected_size.upper() else str(current + 1)
+                nudge_message = f"Customers with your foot profile prefer {recommended_size} in {brand}."
+        # Priority 3: Category-level insight
+        elif category_history.get("most_kept_size"):
+            recommended_size = category_history["most_kept_size"]
+            nudge_message = f"Your most commonly kept size in {category} is {recommended_size}."
         else:
             nudge_message = f"This size has a {int(return_probability*100)}% return risk based on similar customers."
     

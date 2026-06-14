@@ -173,7 +173,7 @@ export default function SellDevicePage() {
           <div className="mt-6 grid grid-cols-3 gap-4 rounded-xl bg-gradient-to-r from-slate-50 to-amber-50/50 p-4 dark:from-slate-800 dark:to-amber-950/10">
             {[
               { icon: "📸", title: "Upload photos", desc: "Take clear photos from all angles" },
-              { icon: "🤖", title: "AI grades in seconds", desc: "DINOv2 + CLIP inspect condition" },
+              { icon: "🤖", title: "AI grades in seconds", desc: "Advanced quality inspection" },
               { icon: "💰", title: "Get instant offer", desc: "Resale, exchange, or Green Credits" },
             ].map((s, i) => (
               <div key={i} className="text-center">
@@ -283,7 +283,7 @@ export default function SellDevicePage() {
           <h3 className="mt-4 text-lg font-bold">AI Inspection in Progress...</h3>
           <p className="mt-2 text-sm text-slate-500">Analyzing {previews.length} images • Evaluating condition • Calculating market value</p>
           <div className="mt-4 flex justify-center gap-3 text-xs text-slate-400">
-            <span>🔍 DINOv2 Vision Analysis</span>
+            <span>🔍 Vision Analysis</span>
             <span>•</span>
             <span>📊 Market Price Engine</span>
             <span>•</span>

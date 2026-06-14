@@ -329,18 +329,7 @@ export function ReturnButton({ orderId, productId, productTitle, productImage }:
                 </button>
               </div>
 
-              {/* SECONDARY: Resell on Marketplace */}
-              <button
-                onClick={() => window.location.href = "/resell"}
-                className="flex w-full items-center gap-3 rounded-xl border border-slate-200 p-4 text-left transition hover:border-emerald-300 hover:bg-emerald-50/50 dark:border-white/10"
-              >
-                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-lg dark:bg-slate-800">🏷️</span>
-                <div className="flex-1">
-                  <p className="text-[15px] font-medium text-slate-900 dark:text-white">Resell on Amazon Marketplace</p>
-                  <p className="text-[13px] text-slate-500">List it yourself — set your own price, reach verified buyers</p>
-                </div>
-                <span className="rounded-lg border border-slate-300 px-3 py-1.5 text-[13px] font-medium text-slate-700 dark:border-white/20 dark:text-slate-200">List</span>
-              </button>
+              
 
               {/* TERTIARY: Donate */}
               <button
